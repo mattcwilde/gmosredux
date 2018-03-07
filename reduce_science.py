@@ -1,0 +1,6 @@
+"""
+Main script to reduce the science data...
+
+TODO: make this work...
+
+"""
