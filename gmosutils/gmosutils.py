@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.table import Table
+from shutil import copyfile
 
 def observation_summary(filenames, additional_headers=None):
     """
@@ -36,3 +37,50 @@ def show_img(img, z1, z2):
     ax.imshow(img, vmin=z1, vmax=z2, cmap=cm, origin='lower')
     #
     plt.show()
+
+def delete_inter_files():
+    """Get rid of the intermediate gsreduced files iraf produces
+
+    """
+    intermediate_files = glob.glob('*gs*fits')
+    for file in intermediate_files:
+        try:
+            os.remove(file)
+        except OSError:
+            pass
+
+
+def delete_tmp_files():
+    """Get rid of the intermediate gsreduced files iraf produces
+
+    """
+    intermediate_files = glob.glob('*tmp*')
+    for file in intermediate_files:
+        try:
+            os.remove(file)
+        except OSError:
+            pass
+
+
+def delete_sci_files():
+    """Get rid of the intermediate gsreduced files iraf produces
+
+    """
+    intermediate_files = glob.glob('J*fits')
+    for file in intermediate_files:
+        try:
+            os.remove(file)
+        except OSError:
+            pass
+
+
+def get_bias():
+    if not os.path.exists('MCbiasFull.fits'):
+        print("No bias in this folder. copying from ../../../Bias/")
+        try:
+            copyfile('../../../Bias/MCbiasFull.fits', './')
+        except OSError:
+            print('No bias? maybe need to make one')
+            pass
+    else:
+        print("bias already exists, ready to roll!")
