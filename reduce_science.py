@@ -7,7 +7,7 @@ An `in-folder` reduction script CGM^2 Multi-Object Spectra
 
 Note: run the prepare file to get this into the correct format...
 """
-from __future__ import print_function, division
+# from __future__ import print_function, division
 
 __author__ = "Matthew Wilde <mwilde@uw.edu>"
 __version__ = "April 10, 2018"
@@ -20,17 +20,12 @@ except ImportError:
 
 import copy
 import glob
+import matplotlib.pyplot as plt
 import os
 import shutil
-
-import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.table import Table
 from pyraf.iraf import gmos, gemtools
-
-# from gmosutils import gmosutils
-# % matplotlib
-# inline
 
 path = os.path.abspath('.')
 
@@ -159,7 +154,7 @@ def make_flat(summary, cent_waves):
                      'logfile': 'gsflatLog.txt', 'verbose': 'no'
                      }
 
-        
+
         flatFlags.update({'fl_keep': 'yes', 'fl_usegrad': 'yes', 'fl_detec': 'no',
                           'fl_seprows': 'no', 'order': 53})
 
