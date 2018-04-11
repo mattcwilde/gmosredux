@@ -20,12 +20,13 @@ except ImportError:
 
 import copy
 import glob
-import matplotlib.pyplot as plt
 import os
 import shutil
+
+import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.table import Table
-from pyraf.iraf import gmos, gemtools
+from pyraf.iraf import gmos
 
 path = os.path.abspath('.')
 
