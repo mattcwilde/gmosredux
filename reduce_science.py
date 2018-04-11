@@ -26,7 +26,7 @@ import shutil
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.table import Table
-from pyraf.iraf import gmos
+from pyraf.iraf import gemini, gmos, gemtools
 
 path = os.path.abspath('.')
 
@@ -120,21 +120,47 @@ def clean_up():
         except OSError:
             pass
 
+    try:
+        shutil.rmtree('database/')
+    except OSError:
+        pass
+
 
 def get_bias():
-    if not os.path.exists('MCbiasFull.fits'):
-        print("No bias in this folder. copying from ../../../Bias/")
+    """
+    This function tries to look for the bias based on my usual file convention.
+    If not it will then look for the local copy before telling the user there is not one to be had.
 
-        try:
-            shutil.copy('../../../Bias/MCbiasFull.fits', './MCbiasFull.fits')
-        except OSError:
-            print('No bias? maybe need to make one')
-            pass
-    else:
-        print("bias already exists, ready to roll!")
+    It will try and copy a bias file to the folder.
+
+    :return: None
+    """
+
+    # try to copy a fresh bias over first
+    try:
+        shutil.copy('../../../Bias/MCbiasFull.fits', './MCbiasFull.fits')
+        print("copying MCbiasFull from from ../../../Bias/")
+    except OSError:
+        if not os.path.exists('MCbiasFull.fits'):
+            print('No bias? maybe you havent made one yet?')
+        else:
+            print("bias already exists, ready to roll!")
 
 
 def make_flat(summary, cent_waves):
+    """
+    This function creates the Master Calibration flats used to reduce Gemini MOS spectra.
+
+    It will create 2 difference flat images:
+        1) a normalized flat field image used to be removed from the science images
+
+        2) a non-normalized (or combined if there are more than 1 flat image per central wavelength)
+            used to find the slit edges.
+
+    :param summary: astroypy Table object with header data in it for each file
+    :param cent_waves: list of floats, central wavelengths from summary
+    :return: None
+    """
     print("### Begin Processing GMOS/MOS Spectra ###")
     print(' ')
     print('IN FOLDER: ', path)
@@ -177,11 +203,14 @@ def make_flat(summary, cent_waves):
 
 
 def reduce_science(summary, cent_waves):
-    """ Reduce the science and arc images and apply wavelength transformation
-        this produces non sky subtracted, non-combined, transformed 2D slits to then
-        be loaded into PYPIT.
+    """
+    Reduce the science and arc images and apply wavelength transformation
+    this produces non sky subtracted, non-combined, transformed 2D slits to then
+    be loaded into PYPIT.
 
-        runs:
+    :param summary: astroypy Table object with header data in it for each file
+    :param cent_waves: list of floats, central wavelengths from summary
+    :return: None
     """
     print("=== Processing Science Files ===")
     print(" -- Performing Basic Processing --")
@@ -343,29 +372,22 @@ def check_if_reduced():
             print("{} already in 2Dspecred, you've wasted your time!".format(outpath + outfolder + outfile))
 
 
-def move_2Dspecred():
+def move_2Dspecred(summary):
     """ Move the finished output science files to their final destination
 
     """
-    pwd = os.path.abspath(".")
+
     outpath = '/Users/mwilde/Dropbox/COS-Gemini/2Dspecred/'
 
-    project_IDs = ["GN-2014A-Q-1", "GN-2014B-LP-3", "GN-2015A-LP-3",
-                   "GS-2014A-Q-2", "GS-2014B-LP-4", "GS-2015A-LP-4"]
+    # get the project ID name
+    pid = list(set(summary['GEMPRGID']))[0]
 
-    # figure out which project we are working on
-    for pid in project_IDs:
-        if pid in pwd:
-            outfolder = pid + '/'
+    # if the project ID folder doesnt exist, make it
+    outfolder = pid + '/'
+    if not os.path.exists(outpath + outfolder):
+        os.mkdir(outpath + outfolder)
 
-            # if the folder doesnt exist, make it
-            if not os.path.exists(outpath + outfolder):
-                os.mkdir(outpath + outfolder)
-        else:
-            print('wrong project id? cant copy to 2Dspecred')
-            break
-
-    # copy final 2Dspecred images to that folder
+    # copy final 2D reduced spectra to that folder
     final_outfiles = glob.glob('J*.fits')
     for outfile in final_outfiles:
         if not os.path.exists(outpath + outfolder + outfile):
@@ -379,8 +401,15 @@ def make_2Dspec(start_from_scratch=False):
 
     :return:
     """
+    # load in the files
+    raw_files = glob.glob('N*fits')
+    observation_table = observation_summary(raw_files)
+    cent_waves = list(set(observation_table[(observation_table['OBSTYPE'] == 'OBJECT')]['CENTWAVE']))
+
+
     # copy the bias over or use the one here
-    shutil.copy('../../../Bias/MCbiasFull.fits', './MCbiasFull.fits')
+    get_bias()
+    # shutil.copy('../../../Bias/MCbiasFull.fits', './MCbiasFull.fits')
 
     # Use to redo the redux
     if start_from_scratch:
@@ -393,10 +422,6 @@ def make_2Dspec(start_from_scratch=False):
         # clean up all the old debris created by my past failures
         clean_up()
 
-        # load in the files
-        raw_files = glob.glob('N*fits')
-        observation_table = observation_summary(raw_files)
-        cent_waves = list(set(observation_table[(observation_table['OBSTYPE'] == 'OBJECT')]['CENTWAVE']))
 
         # make the normalized flat as well as the stacked one used to find slit edges
         make_flat(observation_table, cent_waves)
@@ -413,7 +438,7 @@ def make_2Dspec(start_from_scratch=False):
         print('This folder is already reduced. skipping')
 
     # move files to their resting place even if they already exist just to make sure
-    move_2Dspecred()
+    move_2Dspecred(observation_table)
 
 
 if __name__ == "__main__":
