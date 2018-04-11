@@ -7,7 +7,7 @@ An `in-folder` reduction script CGM^2 Multi-Object Spectra
 
 Note: run the prepare file to get this into the correct format...
 """
-# from __future__ import print_function, division
+from __future__ import print_function, division
 
 __author__ = "Matthew Wilde <mwilde@uw.edu>"
 __version__ = "April 10, 2018"
