@@ -402,7 +402,7 @@ def make_2Dspec(start_from_scratch=False):
     :return:
     """
     # load in the files
-    raw_files = glob.glob('N*fits')
+    raw_files = glob.glob('[N|S]*fits')
     observation_table = observation_summary(raw_files)
     cent_waves = list(set(observation_table[(observation_table['OBSTYPE'] == 'OBJECT')]['CENTWAVE']))
 
