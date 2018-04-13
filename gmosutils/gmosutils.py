@@ -1,7 +1,9 @@
+from shutil import copyfile
+
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.table import Table
-from shutil import copyfile
+
 
 def observation_summary(filenames, additional_headers=None):
     """
@@ -84,3 +86,43 @@ def get_bias():
             pass
     else:
         print("bias already exists, ready to roll!")
+
+def show_flat():
+    """ Plot the flat image for verification.
+
+    """
+    idx = 2
+    dfile = flatPrefix + str(cent_waves[1])[:-2] + '.fits'
+    with fits.open(dfile) as image:
+        hdulist = image
+        data = hdulist[idx].data
+        plt.figure(figsize=(12, 12))
+        show_img(data, 0.8, 1.2)
+
+
+def show_combFlat():
+    """ Plot a section of the combFlat image for verification.
+
+    """
+    idx = 2
+    dfile = 'MCgcalFlatComb' + str(cent_waves[1])[:-2] + '.fits'
+    with fits.open(dfile) as image:
+        hdulist = image
+        data = hdulist[idx].data
+        plt.figure(figsize=(12, 12))
+        show_img(data, 0.8, 70000)
+
+
+def show_output():
+    """ Plot a section of the output image for verification.
+
+    """
+    test_files = glob.glob('J*fits')
+    idx = 5
+    dfile = test_files[0]
+    with fits.open(dfile) as image:
+        hdulist = image
+        data = hdulist[idx].data
+        plt.figure(figsize=(12, 12))
+        show_img(data[:, 1500:1800], 0.8, 180)
+    return None
