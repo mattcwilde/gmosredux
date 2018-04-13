@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 from __future__ import print_function, division
 import os
 # import reduce_science
@@ -23,14 +25,14 @@ for root, dirs, files in os.walk(path, topdown=True):
                 # print("walking through:",os.path.join(root, name))
 
 
-                # src = pwd+REDUX_FILE
-                # dst = os.path.join(root, name)+REDUX_FILE
+                src = pwd+REDUX_FILE
+                dst = os.path.join(root, name)+REDUX_FILE
 
                 # delete the old version
                 # delete_file(dst)
 
                 # copy symlink to that folder
-                # os.symlink(src, dst)
+                os.symlink(src, dst)
 
                 # change to this directory
                 os.chdir(os.path.join(root, name))
@@ -40,7 +42,7 @@ for root, dirs, files in os.walk(path, topdown=True):
 
                 # run the science reduction in each mask folder
                 # reduce_science.make_2Dspec()
-                exec (open("./reduce_science.py").read())
+                # exec (open("./reduce_science.py").read())
                 print(" ======================================================== ")
                 print(" ======================================================== ")
                 print(" Finished ", os.getcwd())
