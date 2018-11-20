@@ -28,6 +28,9 @@ from astropy.io import fits
 from astropy.table import Table
 from pyraf.iraf import gemini, gmos, gemtools
 
+# this task allows us to skip bad slits in gswavelenght!
+iraf.task(mgswavelength='/Users/mwilde/iraf/mgswavelength.cl')
+
 path = os.path.abspath('.')
 
 # Set colormap for plotting
@@ -37,6 +40,10 @@ flatPrefix = 'MC' + 'gcalFlat'
 combName = 'MC' + 'gcalFlat' + 'Comb'
 biasName = 'MCbiasFull.fits'
 
+
+bad_slit = 33 # slit extension of bad slit to skip
+skip_slit = True
+use_jess = True
 
 def observation_summary(filenames, additional_headers=None):
     """
@@ -228,12 +235,22 @@ def reduce_science(summary, cent_waves):
     arcFlags.update({'fl_flat': 'no', 'fl_vardq': 'no', 'fl_fulldq': 'no'})
 
     gmos.gswavelength.unlearn()
-    waveFlags = {
-        'coordlist': 'gmos$data/CuAr_GMOS.dat', 'fwidth': 6, 'nsum': 50,
-        'function': 'chebyshev', 'order': 7,
-        'fl_inter': 'no', 'logfile': 'gswaveLog.txt', 'verbose': 'no'
-    }
+    # USE JESS' PARAMS
+    if use_jess:
+        
+        waveFlags = {
+            'function':'chebyshev','order':4,
+            'fl_inter':'no','logfile':'gswaveLog.txt','verbose':'yes', 'step':2, 'nlost':10
+        }
+    else:
+        waveFlags = {
+            'coordlist': 'gmos$data/CuAr_GMOS.dat', 'fwidth': 6, 'nsum': 50,
+            'function': 'chebyshev', 'order': 7,
+            'fl_inter': 'no', 'logfile': 'gswaveLog.txt', 'verbose': 'no'
+        }
     waveFlags.update({'order': 7, 'nsum': 20, 'step': 2})
+
+
 
     gmos.gstransform.unlearn()
     transFlags = {
@@ -256,7 +273,15 @@ def reduce_science(summary, cent_waves):
         reduced_arcs = [prefix + str(x) for x in arcFull]
         if not os.path.exists(reduced_arcs[0]):
             gmos.gsreduce(','.join(str(x) for x in arcFull), bias=biasName, gradimage=gradName, **arcFlags)
-            gmos.gswavelength(','.join(prefix + str(x) for x in arcFull), **waveFlags)
+
+            # IF YOU WANT TO SKIP A SLIT USE THESE LINES!
+            if skip_slit:
+                mgswavelength(','.join(prefix + str(x) for x in arcFull), firstsciext=1,lastsciext=bad_slit-1, **waveFlags)
+                mgswavelength(','.join(prefix + str(x) for x in arcFull), firstsciext=bad_slit+1,lastsciext=43, **waveFlags)
+
+            else:
+                gmos.gswavelength(','.join(prefix + str(x) for x in arcFull), **waveFlags)
+            
 
         ################### SCI: Reduce and find wavelengths ###############################
         # Science Images
@@ -402,7 +427,7 @@ def make_2Dspec(start_from_scratch=False):
     :return:
     """
     # load in the files
-    raw_files = glob.glob('N*fits')
+    raw_files = glob.glob('[N|S]*fits')
     observation_table = observation_summary(raw_files)
     cent_waves = list(set(observation_table[(observation_table['OBSTYPE'] == 'OBJECT')]['CENTWAVE']))
 
