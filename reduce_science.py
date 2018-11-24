@@ -26,7 +26,7 @@ import shutil
 import matplotlib.pyplot as plt
 from astropy.io import fits
 from astropy.table import Table
-from pyraf.iraf import gemini, gmos, gemtools
+from pyraf.iraf import gemini, gmos, gemtools, task
 
 # this task allows us to skip bad slits in gswavelenght!
 iraf.task(mgswavelength='/Users/mwilde/iraf/mgswavelength.cl')
@@ -173,8 +173,10 @@ def make_flat(summary, cent_waves):
     print('IN FOLDER: ', path)
     print(' ')
     print("=== Creating FLAT MasterCals ===")
+    
 
-    if not os.path.exists(flatPrefix + str(cent_waves[1])[:-2] + '.fits'):
+    pwd = os.path.abspath(".")
+    if not os.path.exists(pwd+'/'+flatPrefix + str(cent_waves[1])[:-2] + '.fits'):
         print(" -- Creating GCAL Spectral Flat-Field MasterCals --")
         print("  -Full Flat (GCAL) normalization, non-interactive-")
 
@@ -276,8 +278,8 @@ def reduce_science(summary, cent_waves):
 
             # IF YOU WANT TO SKIP A SLIT USE THESE LINES!
             if skip_slit:
-                mgswavelength(','.join(prefix + str(x) for x in arcFull), firstsciext=1,lastsciext=bad_slit-1, **waveFlags)
-                mgswavelength(','.join(prefix + str(x) for x in arcFull), firstsciext=bad_slit+1,lastsciext=43, **waveFlags)
+                iraf.mgswavelength(','.join(prefix + str(x) for x in arcFull), firstsciext=1,lastsciext=bad_slit-1, **waveFlags)
+                iraf.mgswavelength(','.join(prefix + str(x) for x in arcFull), firstsciext=bad_slit+1,lastsciext=43, **waveFlags)
 
             else:
                 gmos.gswavelength(','.join(prefix + str(x) for x in arcFull), **waveFlags)
