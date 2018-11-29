@@ -22,6 +22,7 @@ import copy
 import glob
 import os
 import shutil
+import argparse
 
 import matplotlib.pyplot as plt
 from astropy.io import fits
@@ -40,10 +41,33 @@ flatPrefix = 'MC' + 'gcalFlat'
 combName = 'MC' + 'gcalFlat' + 'Comb'
 biasName = 'MCbiasFull.fits'
 
+# Read in user defined slit(s) to skip with mgswavelength
+parser = argparse.ArgumentParser(description="run the iraf reduction on cgmsquared data.")
+parser.add_argument("--skip_slit", type=int, nargs='+', metavar='N',
+                    help="slit extension to skip")
+parser.add_argument("--use_jess", action="store_true", help=" use jess's gswavelength params (lower order fitting")
+args = parser.parse_args()
 
-bad_slit = 33 # slit extension of bad slit to skip
-skip_slit = True
-use_jess = True
+
+
+# set some flag variables
+if args.skip_slit:
+    skip_slit = True
+    slits_to_skip = []
+    for slit in args.skip_slit:
+        slits_to_skip.append(slit)
+        print("********* NOTE:Skipping slit {} *********".format(slit))
+    slits_to_skip = list(set(slits_to_skip))
+    slits_to_skip.sort()
+    num_slits = len(slits_to_skip)
+else:
+    skip_slit = False
+
+if args.use_jess:
+    use_jess = True
+    print("********* NOTE: using Jess' lower order wave fit")
+else: 
+    use_jess = False
 
 def observation_summary(filenames, additional_headers=None):
     """
@@ -79,6 +103,20 @@ def show_img(img, z1, z2):
     ax.imshow(img, vmin=z1, vmax=z2, cmap=cm, origin='lower')
     #
     plt.show()
+
+
+def get_max_extension(file):
+    """
+    Get the last fits extension of the reduced images from the MDF
+
+    -------
+    returns: max_ext (int)
+    """
+
+
+    with fits.open(file) as hdu:
+        mdf = hdu['MDF'].data
+        return mdf['EXTVER'].max()
 
 
 def delete_tmp_files():
@@ -121,6 +159,8 @@ def clean_up():
     intermediate_files += (glob.glob('[t|u|e]*.fits'))
     intermediate_files += (glob.glob('*sci*.fits'))
     intermediate_files += (glob.glob('*.cl'))
+    intermediate_files += (glob.glob('*g[S|N]*fits'))
+    intermediate_files += (glob.glob('*gs[S|N]*fits'))
     for file in intermediate_files:
         try:
             os.remove(file)
@@ -276,10 +316,38 @@ def reduce_science(summary, cent_waves):
         if not os.path.exists(reduced_arcs[0]):
             gmos.gsreduce(','.join(str(x) for x in arcFull), bias=biasName, gradimage=gradName, **arcFlags)
 
+            # find max extenstion number:
+            max_ext = get_max_extension(reduced_arcs[0])
+
+            import pdb; pdb.set_trace()
+
             # IF YOU WANT TO SKIP A SLIT USE THESE LINES!
             if skip_slit:
-                iraf.mgswavelength(','.join(prefix + str(x) for x in arcFull), firstsciext=1,lastsciext=bad_slit-1, **waveFlags)
-                iraf.mgswavelength(','.join(prefix + str(x) for x in arcFull), firstsciext=bad_slit+1,lastsciext=43, **waveFlags)
+                if num_slits == 1:
+                    if slits_to_skip[0] == 1:
+                        iraf.mgswavelength(','.join(prefix + str(x) for x in arcFull), firstsciext=2, lastsciext=max_ext, **waveFlags)
+                    else:
+                        iraf.mgswavelength(','.join(prefix + str(x) for x in arcFull), firstsciext=1, lastsciext=slits_to_skip[0]-1, **waveFlags)
+                        iraf.mgswavelength(','.join(prefix + str(x) for x in arcFull), firstsciext=slits_to_skip[0]+1, lastsciext=max_ext, **waveFlags)
+                elif num_slits == 2:
+                    # check they arent sequential   
+                    if slits_to_skip[1]-slits_to_skip[0] != 1: 
+                        if slits_to_skip[0] == 1:
+                            iraf.mgswavelength(','.join(prefix + str(x) for x in arcFull), firstsciext=2, lastsciext=lits_to_skip[1] - 1, **waveFlags)
+                            iraf.mgswavelength(','.join(prefix + str(x) for x in arcFull), firstsciext=slits_to_skip[1]+1, lastsciext=max_ext, **waveFlags)
+                        else:
+                            iraf.mgswavelength(','.join(prefix + str(x) for x in arcFull), firstsciext=1, lastsciext=slits_to_skip[0]-1, **waveFlags)
+                            iraf.mgswavelength(','.join(prefix + str(x) for x in arcFull), firstsciext=slits_to_skip[0]+1, lastsciext=slits_to_skip[1]-1, **waveFlags)
+                            iraf.mgswavelength(','.join(prefix + str(x) for x in arcFull), firstsciext=slits_to_skip[1]+1, lastsciext=max_ext, **waveFlags)
+                    # if the slits ARE sequential
+                    else:
+                        if slits_to_skip[0] == 1:
+                            iraf.mgswavelength(','.join(prefix + str(x) for x in arcFull), firstsciext=slits_to_skip[1]+1, lastsciext=ax_ext, **waveFlags)
+                        else:
+                            iraf.mgswavelength(','.join(prefix + str(x) for x in arcFull), firstsciext=1, lastsciext=slits_to_skip[0]-1, **waveFlags)
+                            iraf.mgswavelength(','.join(prefix + str(x) for x in arcFull), firstsciext=slits_to_skip[1]+1, lastsciext=max_ext, **waveFlags)
+                else:
+                    print("you input too many slits")
 
             else:
                 gmos.gswavelength(','.join(prefix + str(x) for x in arcFull), **waveFlags)
@@ -423,7 +491,7 @@ def move_2Dspecred(summary):
             print("{} already in 2Dspecred, you've wasted your time!".format(outpath + outfolder + outfile))
 
 
-def make_2Dspec(start_from_scratch=False):
+def make_2Dspec(start_from_scratch=False, clean=False):
     """
 
     :return:
@@ -441,25 +509,26 @@ def make_2Dspec(start_from_scratch=False):
     # Use to redo the redux
     if start_from_scratch:
         delete_sci_files()
+        # clean up all the old debris created by my past failures
+        clean_up()
 
     # check to make sure the final 2D science file doesnt already exist. If it does then
     # dont bother
     if len(glob.glob('J*.fits')) < 1:
 
-        # clean up all the old debris created by my past failures
-        clean_up()
-
-
-        # make the normalized flat as well as the stacked one used to find slit edges
-        make_flat(observation_table, cent_waves)
+        flats = glob.glob('MCgcal*.fits')
+        if len(flats) == 0:
+            # make the normalized flat as well as the stacked one used to find slit edges
+            make_flat(observation_table, cent_waves)
 
         # reduce the science and arc images and apply wavelength transformation
         # this produces non sky subtracted, non-combined, transformed 2D slits to then
         # be loaded into PYPIT
         reduce_science(observation_table, cent_waves)
-
+    if clean:
         # clean up
         delete_tmp_files()
+        clean_up()
 
     else:
         print('This folder is already reduced. skipping')
