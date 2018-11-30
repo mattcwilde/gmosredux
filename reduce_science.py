@@ -261,6 +261,7 @@ def reduce_science(summary, cent_waves):
     :param cent_waves: list of floats, central wavelengths from summary
     :return: None
     """
+
     print("=== Processing Science Files ===")
     print(" -- Performing Basic Processing --")
 
@@ -319,7 +320,7 @@ def reduce_science(summary, cent_waves):
             # find max extenstion number:
             max_ext = get_max_extension(reduced_arcs[0])
 
-            import pdb; pdb.set_trace()
+            # import pdb; pdb.set_trace()
 
             # IF YOU WANT TO SKIP A SLIT USE THESE LINES!
             if skip_slit:
@@ -333,7 +334,7 @@ def reduce_science(summary, cent_waves):
                     # check they arent sequential   
                     if slits_to_skip[1]-slits_to_skip[0] != 1: 
                         if slits_to_skip[0] == 1:
-                            iraf.mgswavelength(','.join(prefix + str(x) for x in arcFull), firstsciext=2, lastsciext=lits_to_skip[1] - 1, **waveFlags)
+                            iraf.mgswavelength(','.join(prefix + str(x) for x in arcFull), firstsciext=2, lastsciext=slits_to_skip[1] - 1, **waveFlags)
                             iraf.mgswavelength(','.join(prefix + str(x) for x in arcFull), firstsciext=slits_to_skip[1]+1, lastsciext=max_ext, **waveFlags)
                         else:
                             iraf.mgswavelength(','.join(prefix + str(x) for x in arcFull), firstsciext=1, lastsciext=slits_to_skip[0]-1, **waveFlags)
@@ -498,8 +499,12 @@ def make_2Dspec(start_from_scratch=False, clean=False):
     """
     # load in the files
     raw_files = glob.glob('[N|S]*fits')
-    observation_table = observation_summary(raw_files)
-    cent_waves = list(set(observation_table[(observation_table['OBSTYPE'] == 'OBJECT')]['CENTWAVE']))
+
+    # make a nice table out of them
+    summary = observation_summary(raw_files)
+
+    # find the central wavelengths we are gonna use 
+    cent_waves = list(set(summary[(summary['OBSTYPE'] == 'OBJECT')]['CENTWAVE']))
 
 
     # copy the bias over or use the one here
@@ -510,7 +515,7 @@ def make_2Dspec(start_from_scratch=False, clean=False):
     if start_from_scratch:
         delete_sci_files()
         # clean up all the old debris created by my past failures
-        clean_up()
+        # clean_up()
 
     # check to make sure the final 2D science file doesnt already exist. If it does then
     # dont bother
@@ -519,12 +524,12 @@ def make_2Dspec(start_from_scratch=False, clean=False):
         flats = glob.glob('MCgcal*.fits')
         if len(flats) == 0:
             # make the normalized flat as well as the stacked one used to find slit edges
-            make_flat(observation_table, cent_waves)
+            make_flat(summary, cent_waves)
 
         # reduce the science and arc images and apply wavelength transformation
         # this produces non sky subtracted, non-combined, transformed 2D slits to then
         # be loaded into PYPIT
-        reduce_science(observation_table, cent_waves)
+        reduce_science(summary, cent_waves)
     if clean:
         # clean up
         delete_tmp_files()
@@ -534,7 +539,7 @@ def make_2Dspec(start_from_scratch=False, clean=False):
         print('This folder is already reduced. skipping')
 
     # move files to their resting place even if they already exist just to make sure
-    move_2Dspecred(observation_table)
+    move_2Dspecred(summary)
 
 
 if __name__ == "__main__":
